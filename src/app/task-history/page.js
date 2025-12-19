@@ -3,6 +3,7 @@
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
+import { StorageService } from '@/utils/storage';
 
 function TaskHistoryContent() {
     const searchParams = useSearchParams();
@@ -11,13 +12,16 @@ function TaskHistoryContent() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (taskName) {
-            const globalHistory = JSON.parse(localStorage.getItem('labTaskHistory')) || [];
-            const taskHistory = globalHistory.filter(entry => entry.taskName === taskName);
-            taskHistory.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-            setHistory(taskHistory);
-        }
-        setLoading(false);
+        const fetchHistory = async () => {
+            if (taskName) {
+                const globalHistory = await StorageService.getHistory();
+                const taskHistory = globalHistory.filter(entry => entry.taskName === taskName);
+                taskHistory.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                setHistory(taskHistory);
+            }
+            setLoading(false);
+        };
+        fetchHistory();
     }, [taskName]);
 
     if (!taskName) return <div className="main-content">Task Not Found</div>;

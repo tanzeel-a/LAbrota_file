@@ -3,6 +3,7 @@
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
+import { StorageService } from '@/utils/storage';
 
 function ProfileContent() {
     const searchParams = useSearchParams();
@@ -11,13 +12,16 @@ function ProfileContent() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (name) {
-            const globalHistory = JSON.parse(localStorage.getItem('labTaskHistory')) || [];
-            const personHistory = globalHistory.filter(entry => entry.people.includes(name));
-            personHistory.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-            setHistory(personHistory);
-        }
-        setLoading(false);
+        const fetchHistory = async () => {
+            if (name) {
+                const globalHistory = await StorageService.getHistory();
+                const personHistory = globalHistory.filter(entry => entry.people.includes(name));
+                personHistory.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                setHistory(personHistory);
+            }
+            setLoading(false);
+        };
+        fetchHistory();
     }, [name]);
 
     if (!name) return <div className="main-content">Person Not Found</div>;

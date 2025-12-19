@@ -6,6 +6,7 @@ import TaskTable from '@/components/TaskTable';
 import RosterEditor from '@/components/RosterEditor';
 import HistoryModal from '@/components/HistoryModal';
 import { TASKS, STANDARD_TEAM, INITIAL_STATE_CONFIG } from '@/utils/data';
+import { StorageService } from '@/utils/storage';
 
 export default function Home() {
     const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -16,17 +17,19 @@ export default function Home() {
     const [historyModalOpen, setHistoryModalOpen] = useState(false);
     const [isLoaded, setIsLoaded] = useState(false);
 
-    // Load state from localStorage
+    // Load state from Supabase/localStorage
     useEffect(() => {
-        const loadState = () => {
-            const storedState = JSON.parse(localStorage.getItem('labTaskState'));
-            const storedHistory = JSON.parse(localStorage.getItem('labTaskHistory')) || [];
-            const storedCustomRoster = JSON.parse(localStorage.getItem('labTaskCustomRoster'));
-            const storedRosterHistory = JSON.parse(localStorage.getItem('labTaskRosterHistory')) || [];
+        const loadState = async () => {
+            const [storedState, storedHistory, storedCustomRoster, storedRosterHistory] = await Promise.all([
+                StorageService.getState(),
+                StorageService.getHistory(),
+                StorageService.getCustomRoster(),
+                StorageService.getRosterHistory()
+            ]);
 
-            setGlobalHistory(storedHistory);
+            setGlobalHistory(storedHistory || []);
             setCustomRoster(storedCustomRoster);
-            setRosterHistory(storedRosterHistory);
+            setRosterHistory(storedRosterHistory || []);
 
             if (!storedState) {
                 const newState = {};
@@ -59,7 +62,7 @@ export default function Home() {
                     }
                 });
                 setState(newState);
-                localStorage.setItem('labTaskState', JSON.stringify(newState));
+                await StorageService.saveState(newState);
             } else {
                 setState(storedState);
             }
@@ -70,12 +73,14 @@ export default function Home() {
     }, []);
 
     // Save state helper
-    const saveState = (newState, newHistory) => {
+    const saveState = async (newState, newHistoryEntry) => {
         setState(newState);
-        localStorage.setItem('labTaskState', JSON.stringify(newState));
-        if (newHistory) {
-            setGlobalHistory(newHistory);
-            localStorage.setItem('labTaskHistory', JSON.stringify(newHistory));
+        await StorageService.saveState(newState);
+
+        if (newHistoryEntry) {
+            const updatedHistory = [...globalHistory, newHistoryEntry];
+            setGlobalHistory(updatedHistory);
+            await StorageService.addHistoryEntry(newHistoryEntry);
         }
     };
 
@@ -176,18 +181,18 @@ export default function Home() {
         const allDoers = [currentPerson, ...extraPeople];
 
         const timestamp = new Date().toISOString();
-        const newHistory = [...globalHistory, {
+        const newHistoryEntry = {
             taskName: task.name,
             people: allDoers,
             timestamp: timestamp
-        }];
+        };
 
         let newState = { ...state };
         let newTaskState = advanceCurrentPerson(taskIndex, newState);
         newTaskState.extras = []; // Clear extras
 
         newState[taskIndex] = newTaskState;
-        saveState(newState, newHistory);
+        saveState(newState, newHistoryEntry);
     };
 
     const handleRemoveSkip = (taskIndex, personName) => {
@@ -210,16 +215,18 @@ export default function Home() {
         }
     };
 
-    const handleSaveRoster = (newRoster) => {
-        localStorage.setItem('labTaskCustomRoster', JSON.stringify(newRoster));
+    const handleSaveRoster = async (newRoster) => {
+        await StorageService.saveCustomRoster(newRoster);
 
         const logEntry = {
             timestamp: new Date().toISOString(),
             details: `Roster updated. New count: ${newRoster.length}. Names: ${newRoster.join(', ')}`
         };
+
+        await StorageService.addRosterHistoryEntry(logEntry);
+
         const newRosterHistory = [...rosterHistory, logEntry];
         setRosterHistory(newRosterHistory);
-        localStorage.setItem('labTaskRosterHistory', JSON.stringify(newRosterHistory));
 
         alert("Roster saved! The page will reload to apply changes.");
         window.location.reload();
