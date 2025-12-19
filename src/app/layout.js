@@ -1,4 +1,5 @@
 import './globals.css';
+import ClickSound from '@/components/ClickSound';
 
 export const metadata = {
     title: 'Lab Task Manager',
@@ -11,7 +12,10 @@ export default function RootLayout({ children }) {
             <head>
                 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
             </head>
-            <body>{children}</body>
+            <body>
+                <ClickSound />
+                {children}
+            </body>
         </html>
     );
 }
